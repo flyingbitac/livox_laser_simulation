@@ -144,10 +144,10 @@ void LivoxPointsPlugin::OnNewLaserScans() {
         auto verticle_min = VerticalAngleMin().Radian();
         auto verticle_incre = VerticalAngleResolution();
 
-        sensor_msgs::PointCloud scan_point;
-        scan_point.header.stamp = ros::Time::now();
-        scan_point.header.frame_id = raySensor->Name();
-        auto &scan_points = scan_point.points;
+        // sensor_msgs::PointCloud scan_point;
+        // scan_point.header.stamp = ros::Time::now();
+        // scan_point.header.frame_id = raySensor->Name();
+        // auto &scan_points = scan_point.points;
 
         for (auto &pair : points_pair) {
                 auto range = rayShape->GetRange(pair.first);
