@@ -19,6 +19,32 @@
 #include "livox_laser_simulation/livox_ode_multiray_shape.h"
 #include <sdf/sdf_config.h>
 
+
+// 2. 定义适应 Fast-LIO 的自定义 PCL 点类型
+// 包含: x, y, z, intensity(reflectivity), tag, line(ring), t(time)
+namespace pcl {
+struct LivoxPointXyzrlt {
+    PCL_ADD_POINT4D;       // 添加 x, y, z, padding
+    float reflectivity;    // 对应 intensity
+    uint8_t tag;           // 这里的 tag 用于标记回波次序等
+    uint8_t line;          // 对应 ring
+    double t;              // 时间偏移量
+    PCL_MAKE_ALIGNED_OPERATOR_NEW
+} EIGEN_ALIGN16;
+}  // namespace pcl
+
+// 注册点类型，让 ROS 能识别这些字段名
+POINT_CLOUD_REGISTER_POINT_STRUCT(pcl::LivoxPointXyzrlt,
+    (float, x, x)
+    (float, y, y)
+    (float, z, z)
+    (float, reflectivity, reflectivity)
+    (uint8_t, tag, tag)
+    (uint8_t, line, line) // 注意：有些 Fast-LIO 版本查找 "ring"，有些查找 "line"，通常 "line" 兼容性较好，或者两者都映射
+    (double, t, t)
+)
+
+
 namespace gazebo {
 
 GZ_REGISTER_SENSOR_PLUGIN(LivoxPointsPlugin)
@@ -30,15 +56,18 @@ LivoxPointsPlugin::~LivoxPointsPlugin() {}
 void convertDataToRotateInfo(const std::vector<std::vector<double>> &datas, std::vector<AviaRotateInfo> &avia_infos) {
     avia_infos.reserve(datas.size());
     double deg_2_rad = M_PI / 180.0;
+    int i = 0;
     for (auto &data : datas) {
         if (data.size() == 3) {
             avia_infos.emplace_back();
             avia_infos.back().time = data[0];
             avia_infos.back().azimuth = data[1] * deg_2_rad;
             avia_infos.back().zenith = data[2] * deg_2_rad - M_PI_2;  //转化成标准的右手系角度
+            avia_infos.back().line = i % 4;
         } else {
             ROS_INFO_STREAM("data size is not 3!");
         }
+        i++;
     }
 }
 
@@ -134,8 +163,18 @@ void LivoxPointsPlugin::OnNewLaserScans() {
 
         SendRosTf(parentEntity->WorldPose(), world->Name(), raySensor->ParentName());
 
-        pcl::PointCloud<pcl::PointXYZ> pcl_pc;
-        pcl_pc.reserve(points_pair.size()); // 预分配内存加速
+        // pcl::PointCloud<pcl::PointXYZ> pcl_pc;
+        // pcl_pc.reserve(points_pair.size()); // 预分配内存加速
+        pcl::PointCloud<pcl::LivoxPointXyzrlt> pcl_cloud;
+        pcl_cloud.reserve(points_pair.size());
+
+        // 获取当前 ROS 时间作为基准时间
+        ros::Time timestamp = ros::Time::now();
+        
+        // 模拟时间间隔：假设扫描频率是 10Hz，一帧约 0.1秒
+        // 或者根据 samplesStep 计算。这里为了简化，根据点在数组中的位置估算时间
+        double scan_duration = 0.1; 
+        double time_increment = scan_duration / (double)points_pair.size();
 
         auto rayCount = RayCount();
         auto verticalRayCount = VerticalRayCount();
@@ -148,14 +187,13 @@ void LivoxPointsPlugin::OnNewLaserScans() {
         // scan_point.header.stamp = ros::Time::now();
         // scan_point.header.frame_id = raySensor->Name();
         // auto &scan_points = scan_point.points;
-
+        int point_idx = 0;
         for (auto &pair : points_pair) {
                 auto range = rayShape->GetRange(pair.first);
                 auto intensity = rayShape->GetRetro(pair.first);
-                if (range >= RangeMax()) {
-                    range = 0;
-                } else if (range <= RangeMin()) {
-                    range = 0;
+                if (range >= RangeMax() || range <= RangeMin() || range < 0.1) {
+                    point_idx++;
+                    continue;
                 }
 
 
@@ -168,11 +206,26 @@ void LivoxPointsPlugin::OnNewLaserScans() {
                 auto axis = ray * ignition::math::Vector3d(1.0, 0.0, 0.0);
                 auto point = range * axis;
                 // 修改
-                pcl::PointXYZ pt;
+                // pcl::PointXYZ pt;
+                // pt.x = point.X();
+                // pt.y = point.Y();
+                // pt.z = point.Z();
+                // pcl_pc.push_back(pt);
+                // 2. 填充点数据
+                pcl::LivoxPointXyzrlt pt;
                 pt.x = point.X();
                 pt.y = point.Y();
                 pt.z = point.Z();
-                pcl_pc.push_back(pt);
+                pt.reflectivity = static_cast<float>(intensity); // 强度
+                pt.tag = 0; // 默认 tag
+                pt.line = rotate_info.line; // 线束 ID (解决 'ring' 报错)
+                
+                // 计算相对时间 t (解决 't' 报错)
+                // Fast-LIO 需要的是相对于 header.stamp 的时间偏移(秒)
+                pt.t = point_idx * time_increment; 
+
+                pcl_cloud.push_back(pt);
+                point_idx++;
 
                 // scan_points.emplace_back();
                 // scan_points.back().x = point.X();
@@ -186,14 +239,16 @@ void LivoxPointsPlugin::OnNewLaserScans() {
             //    //                          pair.second.azimuth);
             //}
         }
+        sensor_msgs::PointCloud2 scan_msg;
+        pcl::toROSMsg(pcl_cloud, scan_msg);
+        
+        scan_msg.header.stamp = timestamp;
+        scan_msg.header.frame_id = raySensor->Name();
+        
+        // 确保发布
+        rosPointPub.publish(scan_msg);
+        
         if (scanPub && scanPub->HasConnections()) scanPub->Publish(laserMsg);
-        // 修改
-        sensor_msgs::PointCloud2 scan_point;
-        pcl::toROSMsg(pcl_pc, scan_point); // 将 PCL 对象转换为 ROS 消息
-        scan_point.header.stamp = ros::Time::now();
-        scan_point.header.frame_id = raySensor->Name();
-
-        rosPointPub.publish(scan_point);
         ros::spinOnce();
     }
 }

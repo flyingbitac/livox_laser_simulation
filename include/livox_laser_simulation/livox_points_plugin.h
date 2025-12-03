@@ -14,6 +14,7 @@ struct AviaRotateInfo {
     double time;
     double azimuth;
     double zenith;
+    int line;
 };
 
 class LivoxPointsPlugin : public RayPlugin {
