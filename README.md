@@ -7,7 +7,7 @@ sensor_msgs/PointCloud2
 ```
 ## Environment
 我自己电脑测试的环境如下
-- ROS(=Noetic)
+- ROS1(Noetic)
 - Gazebo11
 - Ubuntu(20.04)
 
@@ -15,8 +15,9 @@ sensor_msgs/PointCloud2
 
 **克隆仓库并编译**
 ```shell
+mkdir -p catkin_ws/src
 cd ~/catkin_ws/src
-git clone https://github.com/qiurongcan/Mid360_imu_sim.git
+git clone -b PointCloud2_1 https://github.com/qiurongcan/Mid360_imu_sim.git
 cd ..
 catkin_make
 ```
