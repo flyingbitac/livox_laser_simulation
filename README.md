@@ -1,6 +1,10 @@
 # Livox MID360 + IMU仿真 可用于Fast LIO
 A package to provide plug-in for [Livox Series LiDAR](https://www.livoxtech.com).
 
+## 发布点云类型
+```shell
+sensor_msgs/PointCloud2
+```
 ## Environment
 我自己电脑测试的环境如下
 - ROS(=Noetic)
