@@ -5,10 +5,9 @@
 #include "livox_laser_simulation/livox_points_plugin.h"
 #include <ros/ros.h>
 // #include <sensor_msgs/PointCloud.h>
-#include <sensor_msgs/PointCloud2.h>
-#include <pcl_conversions/pcl_conversions.h>
-#include <pcl/point_cloud.h>
-#include <pcl/point_types.h>
+#include <livox_ros_driver2/CustomMsg.h>
+#include <livox_ros_driver2/CustomPoint.h>
+
 #include <gazebo/physics/Model.hh>
 #include <gazebo/physics/MultiRayShape.hh>
 #include <gazebo/physics/PhysicsEngine.hh>
@@ -72,7 +71,7 @@ void LivoxPointsPlugin::Load(gazebo::sensors::SensorPtr _parent, sdf::ElementPtr
     ROS_INFO_STREAM("ros topic name:" << curr_scan_topic);
     ros::init(argc, argv, curr_scan_topic);
     rosNode.reset(new ros::NodeHandle);
-    rosPointPub = rosNode->advertise<sensor_msgs::PointCloud2>(curr_scan_topic, 5);
+    rosPointPub = rosNode->advertise<livox_ros_driver2::CustomMsg>(curr_scan_topic, 5);
 
     raySensor = _parent;
     auto sensor_pose = raySensor->Pose();
@@ -134,8 +133,15 @@ void LivoxPointsPlugin::OnNewLaserScans() {
 
         SendRosTf(parentEntity->WorldPose(), world->Name(), raySensor->ParentName());
 
-        pcl::PointCloud<pcl::PointXYZ> pcl_pc;
-        pcl_pc.reserve(points_pair.size()); // 预分配内存加速
+        // pcl::PointCloud<pcl::PointXYZ> pcl_pc;
+        // pcl_pc.reserve(points_pair.size()); // 预分配内存加速
+        // [修改] 准备 CustomMsg
+        livox_ros_driver2::CustomMsg msg;
+        msg.header.stamp = ros::Time::now();
+        msg.header.frame_id = raySensor->Name();
+        // timebase 单位是纳秒，通常设为当前帧的时间戳
+        msg.timebase = msg.header.stamp.toNSec(); 
+        msg.points.reserve(points_pair.size());
 
         auto rayCount = RayCount();
         auto verticalRayCount = VerticalRayCount();
@@ -144,56 +150,48 @@ void LivoxPointsPlugin::OnNewLaserScans() {
         auto verticle_min = VerticalAngleMin().Radian();
         auto verticle_incre = VerticalAngleResolution();
 
-        // sensor_msgs::PointCloud scan_point;
-        // scan_point.header.stamp = ros::Time::now();
-        // scan_point.header.frame_id = raySensor->Name();
-        // auto &scan_points = scan_point.points;
 
         for (auto &pair : points_pair) {
-                auto range = rayShape->GetRange(pair.first);
-                auto intensity = rayShape->GetRetro(pair.first);
-                if (range >= RangeMax()) {
-                    range = 0;
-                } else if (range <= RangeMin()) {
-                    range = 0;
-                }
+            auto range = rayShape->GetRange(pair.first);
+            auto intensity = rayShape->GetRetro(pair.first);
+                // 过滤无效点
+            if (range >= RangeMax() || range <= RangeMin()) {
+                range = 0;
+                // 通常 CustomMsg 不发送距离为0的点，或者你可以根据需求决定是否continue
+                continue; 
+            }
 
 
-                auto rotate_info = pair.second;
-                ignition::math::Quaterniond ray;
-                ray.Euler(ignition::math::Vector3d(0.0, rotate_info.zenith, rotate_info.azimuth));
-                //                auto axis = rotate * ray * ignition::math::Vector3d(1.0, 0.0, 0.0);
-                //                auto point = range * axis + world_pose.Pos();//转换成世界坐标系
+            auto rotate_info = pair.second;
+            ignition::math::Quaterniond ray;
+            ray.Euler(ignition::math::Vector3d(0.0, rotate_info.zenith, rotate_info.azimuth));
+            //                auto axis = rotate * ray * ignition::math::Vector3d(1.0, 0.0, 0.0);
+            //                auto point = range * axis + world_pose.Pos();//转换成世界坐标系
 
-                auto axis = ray * ignition::math::Vector3d(1.0, 0.0, 0.0);
-                auto point = range * axis;
-                // 修改
-                pcl::PointXYZ pt;
-                pt.x = point.X();
-                pt.y = point.Y();
-                pt.z = point.Z();
-                pcl_pc.push_back(pt);
+            auto axis = ray * ignition::math::Vector3d(1.0, 0.0, 0.0);
+            auto point = range * axis;
+            
+            // [修改] 填充 CustomPoint
+            livox_ros_driver2::CustomPoint pt;
+            pt.x = point.X();
+            pt.y = point.Y();
+            pt.z = point.Z();
+            pt.reflectivity = static_cast<uint8_t>(intensity); // 强度
+            pt.tag = 0x10; // 0x10 表示正常返回点，具体参考Livox协议
+            pt.line = 0; // 仿真中通常难以模拟准确的线号，设为0或根据 zenith 计算
+            
+            // 设置点的时间偏移，rotate_info.time 是 CSV 中的时间（秒），CustomMsg 需要纳秒
+            // 注意：timebase + offset_time = 该点的绝对时间
+            pt.offset_time = static_cast<uint32_t>(rotate_info.time * 1e9); 
 
-                // scan_points.emplace_back();
-                // scan_points.back().x = point.X();
-                // scan_points.back().y = point.Y();
-                // scan_points.back().z = point.Z();
-            //} else {
-
-            //    //                ROS_INFO_STREAM("count is wrong:" << verticle_index << "," << verticalRayCount << ","
-            //    //                << horizon_index
-            //    //                          << "," << rayCount << "," << pair.second.zenith << "," <<
-            //    //                          pair.second.azimuth);
-            //}
+            msg.points.push_back(pt);
         }
         if (scanPub && scanPub->HasConnections()) scanPub->Publish(laserMsg);
         // 修改
-        sensor_msgs::PointCloud2 scan_point;
-        pcl::toROSMsg(pcl_pc, scan_point); // 将 PCL 对象转换为 ROS 消息
-        scan_point.header.stamp = ros::Time::now();
-        scan_point.header.frame_id = raySensor->Name();
-
-        rosPointPub.publish(scan_point);
+        msg.point_num = msg.points.size();
+        if (msg.point_num > 0) {
+            rosPointPub.publish(msg);
+        }
         ros::spinOnce();
     }
 }

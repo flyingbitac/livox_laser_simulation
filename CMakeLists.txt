@@ -9,6 +9,7 @@ find_package(catkin REQUIRED COMPONENTS
   tf
   pcl_conversions 
   pcl_ros
+  livox_ros_driver2
 )
 
 find_package(gazebo REQUIRED)
