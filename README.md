@@ -3,7 +3,7 @@ A package to provide plug-in for [Livox Series LiDAR](https://www.livoxtech.com)
 
 ## 发布点云类型
 ```shell
-sensor_msgs/PointCloud2
+livox_ros_driver2/CustomMsg
 ```
 ## Environment
 我自己电脑测试的环境如下
@@ -16,7 +16,7 @@ sensor_msgs/PointCloud2
 **克隆仓库并编译**
 ```shell
 cd ~/catkin_ws/src
-git clone https://github.com/qiurongcan/Mid360_imu_sim.git
+git clone -b Custom https://github.com/qiurongcan/Mid360_imu_sim.git
 cd ..
 catkin_make
 ```
@@ -40,25 +40,11 @@ roslaunch livox_laser_simulation mid360_IMU_platform.launch
 **查看话题**
 此时会有两个话题
 ```shell
-/scan sensor_msgs/PointCloud
+/scan livox_ros_driver2/CustomMsg
 /livox/imu
 ```
-这个雷达的数据类型Fast_LIO是没办法使用的，需要对其进行转换
+**这个雷达的数据类型Fast_LIO是可以直接使用的**
 
-**数据类型转化**
-```shell
-# 运行转换脚本
-rosrun livox_laser_simulation pointcloud2livox.py
-# 也可以直接运行python文件
-cd Mid360_imu_sim/script
-python3 pointcloud2livox.py
-```
-最后输出的话题为
-```shell
-/livox/imu
-/livox/lidar2
-```
-之后用fast_lio订阅即可
 
 ## Parameters(only for display , and example by avia)
 
