@@ -40,25 +40,11 @@ roslaunch livox_laser_simulation mid360_IMU_platform.launch
 **查看话题**
 此时会有两个话题
 ```shell
-/scan sensor_msgs/PointCloud
+/scan sensor_msgs/PointCloud2
 /livox/imu
 ```
-这个雷达的数据类型Fast_LIO是没办法使用的，需要对其进行转换
+这个雷达的数据类型Fast_LIO是可以直接使用，**但是在FAST_LIO的`mid360.yml`中，需要设置`lidar_type=3`**
 
-**数据类型转化**
-```shell
-# 运行转换脚本
-rosrun livox_laser_simulation pointcloud2livox.py
-# 也可以直接运行python文件
-cd Mid360_imu_sim/script
-python3 pointcloud2livox.py
-```
-最后输出的话题为
-```shell
-/livox/imu
-/livox/lidar2
-```
-之后用fast_lio订阅即可
 
 ## Parameters(only for display , and example by avia)
 
