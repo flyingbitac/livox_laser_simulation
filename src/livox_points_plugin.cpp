@@ -3,7 +3,7 @@
 //
 
 #include "livox_laser_simulation/livox_points_plugin.h"
-#include <livox_ros_driver/CustomMsg.h>
+#include <livox_ros_driver2/CustomMsg.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl_conversions/pcl_conversions.h>
@@ -122,7 +122,7 @@ void LivoxPointsPlugin::Load(gazebo::sensors::SensorPtr _parent, sdf::ElementPtr
             rosPointPub = rosNode->advertise<sensor_msgs::PointCloud2>(curr_scan_topic, 5);
             break;
         case LIVOX_ROS_DRIVER_CUSTOM_MSG:
-            rosPointPub = rosNode->advertise<livox_ros_driver::CustomMsg>(curr_scan_topic, 5);
+            rosPointPub = rosNode->advertise<livox_ros_driver2::CustomMsg>(curr_scan_topic, 5);
             break;
         default:
             break;
@@ -548,7 +548,7 @@ void LivoxPointsPlugin::PublishLivoxROSDriverCustomMsg(std::vector<std::pair<int
 
     sensor_msgs::PointCloud2 scan_point;
 
-    livox_ros_driver::CustomMsg msg;
+    livox_ros_driver2::CustomMsg msg;
     msg.header.frame_id = raySensor->Name();
     msg.timebase = ros::Time::now().toNSec();
     msg.header.stamp = ros::Time::now();
@@ -579,7 +579,7 @@ void LivoxPointsPlugin::PublishLivoxROSDriverCustomMsg(std::vector<std::pair<int
             auto axis = ray * math::Vector3d(1.0, 0.0, 0.0);
             auto point = range * axis;
             // pt.reflectivity = static_cast<float>(intensity);
-            livox_ros_driver::CustomPoint pt;
+            livox_ros_driver2::CustomPoint pt;
             pt.x = point.X();
             pt.y = point.Y();
             pt.z = point.Z();
