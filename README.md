@@ -5,11 +5,11 @@ A package to provide plug-in for [Livox Series LiDAR](https://www.livoxtech.com)
 这个仓库有三个分支，mid360发送的消息不一致  
 **根据自己要用的消息克隆不同的分支**
 
-|分支|消息类型|
-|:-----|:-----|
-|main |`sensor_msgs/PointCloud`|
-|PointCloud2_1| `sensor_msgs/PointCloud2`|
-|Custom| `livox_ros_driver2/CustomMsg`|
+|分支|消息类型|备注|
+|:-----|:-----|:-----|
+|main |`sensor_msgs/PointCloud`|这个分支还需要做消息转化|
+|PointCloud2_1| `sensor_msgs/PointCloud2`||
+|Custom| `livox_ros_driver2/CustomMsg`|推荐使用这个分支，但是**需要安装额外的依赖**|
 
 **如果使用Custom分支，则需要安装`livox_ros_driver2`功能，详细可见分支的readme**
 
