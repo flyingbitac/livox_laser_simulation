@@ -1,3 +1,11 @@
+<!--
+ * @@Descripttion: 
+ * @@version: 
+ * @@encoding: utf-8
+ * @@Author: qiurongcan
+ * @Date: 2025-12-04 09:25:24
+ * @LastEditTime: 2025-12-04 15:57:38
+-->
 # Livox MID360 + IMU仿真 可用于Fast LIO
 A package to provide plug-in for [Livox Series LiDAR](https://www.livoxtech.com).
 
@@ -11,9 +19,35 @@ livox_ros_driver2/CustomMsg
 - Gazebo11
 - Ubuntu(20.04)
 
+## 安装Livox_SDK2依赖
+**快速安装**
+```shell
+git clone https://github.com/Livox-SDK/Livox-SDK2.git
+cd ./Livox-SDK2/
+mkdir build
+cd build
+cmake .. && make -j
+sudo make install
+```
+
+## 安装livox_ros_driver2依赖
+```shell
+# 在主目录下创建一个工作空间
+mkdir -p catkin_ws/src
+cd catkin/src
+git clone https://github.com/Livox-SDK/livox_ros_driver2.git ws_livox/src/livox_ros_driver2
+cd livox_ros_driver2
+# 我是用的ROS1，如果使用ROS2参考原仓库安装
+./build.sh ROS1
+# 激活全局路径
+source ../../devel/setup.bash
+# 验证，没报错的话基本上是没问题
+roslaunch livox_ros_driver2 [launch file]
+```
+
 ## Usage
 
-**克隆仓库并编译**
+**克隆仓库并编译, 注意这个功能包和`livox_ros_driver2`放在一个工作空间下，如果不在一个空间编译会报错**
 ```shell
 cd ~/catkin_ws/src
 git clone -b Custom https://github.com/qiurongcan/Mid360_imu_sim.git
@@ -39,7 +73,10 @@ roslaunch livox_laser_simulation mid360_IMU_platform.launch
 ```
 **查看话题**
 此时会有两个话题
-```shell
+```shell 
+# 打开一个新的终端
+rostopic list
+# 输出如下 >>>>>
 /scan livox_ros_driver2/CustomMsg
 /livox/imu
 ```
