@@ -29,15 +29,18 @@ LivoxPointsPlugin::~LivoxPointsPlugin() {}
 void convertDataToRotateInfo(const std::vector<std::vector<double>> &datas, std::vector<AviaRotateInfo> &avia_infos) {
     avia_infos.reserve(datas.size());
     double deg_2_rad = M_PI / 180.0;
+    int i = 0;
     for (auto &data : datas) {
         if (data.size() == 3) {
             avia_infos.emplace_back();
             avia_infos.back().time = data[0];
             avia_infos.back().azimuth = data[1] * deg_2_rad;
             avia_infos.back().zenith = data[2] * deg_2_rad - M_PI_2;  //转化成标准的右手系角度
+            avia_infos.back().line = i % 4; // mid360是四线
         } else {
             ROS_INFO_STREAM("data size is not 3!");
         }
+        i++;
     }
 }
 
@@ -176,19 +179,20 @@ void LivoxPointsPlugin::OnNewLaserScans() {
             pt.x = point.X();
             pt.y = point.Y();
             pt.z = point.Z();
-            pt.reflectivity = static_cast<uint8_t>(intensity); // 强度
-            pt.tag = 0x10; // 0x10 表示正常返回点，具体参考Livox协议
-            pt.line = 0; // 仿真中通常难以模拟准确的线号，设为0或根据 zenith 计算
+            pt.reflectivity = static_cast<float>(intensity); // 强度
+            pt.tag = 0; // 0x10 表示正常返回点，具体参考Livox协议
+            pt.line = pair.second.line; // 仿真中通常难以模拟准确的线号，设为0或根据 zenith 计算
             
             // 设置点的时间偏移，rotate_info.time 是 CSV 中的时间（秒），CustomMsg 需要纳秒
             // 注意：timebase + offset_time = 该点的绝对时间
-            pt.offset_time = static_cast<uint32_t>(rotate_info.time * 1e9); 
+            pt.offset_time = ros::Time::now().toNSec() - msg.timebase; 
 
             msg.points.push_back(pt);
         }
         if (scanPub && scanPub->HasConnections()) scanPub->Publish(laserMsg);
-        // 修改
+        // [修改]
         msg.point_num = msg.points.size();
+        
         if (msg.point_num > 0) {
             rosPointPub.publish(msg);
         }
