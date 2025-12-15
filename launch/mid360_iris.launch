@@ -1,0 +1,18 @@
+<?xml version="1.0" ?>
+<launch>
+  <arg name="gui" default="true"/>
+  <arg name="rviz" default="false"/>
+
+  <env name="SDF_PATH" value="$(find flight_control)/model"/>
+  <include file="$(find px4)/launch/mavros_posix_sitl.launch">
+        <arg name="gui" value="$(arg gui)"/>
+        <arg name="sdf" value="$(find flight_control)/model/iris_mid360/iris_mid360.sdf"/>
+        <arg name="world" value="$(find accel_control)/world/cylinder_forest.world"/>
+        <!-- <arg name="vehicle" value="$(arg vehicle)"/> -->
+  </include>
+
+  <!-- RViz -->
+  <group if="$(arg rviz)">
+    <node name="livox_simulation_rviz" pkg="rviz" type="rviz" args="-d $(find livox_laser_simulation)/rviz/livox_simulation.rviz"/>
+  </group>
+</launch>
